@@ -17,3 +17,11 @@ where
         Err(Error(hr))
     }
 }
+
+pub fn wrap_unit(hr: HRESULT) -> Result<(), Error> {
+    if SUCCEEDED(hr) {
+        Ok(())
+    } else {
+        Err(Error(hr))
+    }
+}

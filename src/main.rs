@@ -1,6 +1,8 @@
 use std::ptr::{null, null_mut};
 
-use winapi::um::{errhandlingapi, wingdi, winuser};
+use winapi::shared::dxgi::DXGI_SWAP_EFFECT_FLIP_DISCARD;
+use winapi::shared::{dxgi1_2, dxgiformat, dxgitype, minwindef};
+use winapi::um::{wingdi, winuser};
 
 use wio::wide::ToWide;
 
@@ -42,8 +44,34 @@ fn main() {
             null_mut(),
         );
 
-        let (d3d_device, d3d_device_context) = d3d11::D3D11Device::create().unwrap();
+        let (d3d_device, mut d3d_device_context) = d3d11::D3D11Device::create().unwrap();
         let dxgi_factory = dxgi::DXGIFactory2::create().unwrap();
+        let desc = dxgi1_2::DXGI_SWAP_CHAIN_DESC1 {
+            Width: 0,
+            Height: 0,
+            AlphaMode: dxgi1_2::DXGI_ALPHA_MODE_IGNORE,
+            BufferCount: 2,
+            Format: dxgiformat::DXGI_FORMAT_B8G8R8A8_UNORM,
+            Flags: 0,
+            BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            SampleDesc: dxgitype::DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
+            Scaling: dxgi1_2::DXGI_SCALING_STRETCH,
+            Stereo: minwindef::FALSE,
+            // Note: FLIP_DISCARD is Windows 8 only; negotiate
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
+        };
+        let mut swap_chain = dxgi_factory
+            .create_swapchain_for_hwnd(&d3d_device, hwnd, &desc)
+            .unwrap();
+
+        let buf = swap_chain.get_buffer(0).unwrap();
+        let mut rtv = d3d_device.create_render_target_view(&buf).unwrap();
+        d3d_device_context.clear_render_target_view(&mut rtv, &[0.0, 0.2, 0.4, 1.0]);
+
+        swap_chain.present(1, 0).unwrap();
 
         loop {
             let mut msg = std::mem::zeroed();
