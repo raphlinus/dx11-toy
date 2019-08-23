@@ -4,6 +4,10 @@ use winapi::um::{errhandlingapi, wingdi, winuser};
 
 use wio::wide::ToWide;
 
+mod d3d11;
+mod dxgi;
+mod util;
+
 fn main() {
     unsafe {
         let class_name = "dx11".to_wide_null();
@@ -22,8 +26,7 @@ fn main() {
             lpszMenuName: null(),
             lpszClassName: class_name.as_ptr(),
         };
-        let class_atom = winuser::RegisterClassW(&class);
-        println!("class atom = {}", class_atom);
+        let _class_atom = winuser::RegisterClassW(&class);
         let hwnd = winuser::CreateWindowExW(
             0,
             class_name.as_ptr(),
@@ -38,11 +41,14 @@ fn main() {
             null_mut(),
             null_mut(),
         );
-        println!("hwnd = {:?}, {:x}", hwnd, errhandlingapi::GetLastError());
+
+        let (d3d_device, d3d_device_context) = d3d11::D3D11Device::create().unwrap();
+        let dxgi_factory = dxgi::DXGIFactory2::create().unwrap();
 
         loop {
             let mut msg = std::mem::zeroed();
-            if winuser::GetMessageW(&mut msg, null_mut(), 0, 0) == 0 {
+            // Note: we filter on hwnd so we get an error when the window is closed.
+            if winuser::GetMessageW(&mut msg, hwnd, 0, 0) <= 0 {
                 break;
             }
             winuser::TranslateMessage(&mut msg);

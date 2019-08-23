@@ -7,5 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winapi = { version = "0.3.7", features = ["libloaderapi", "winuser"] }
+winapi = { version = "0.3.7", features = ["d3d11", "dxgi1_2", "libloaderapi", "winerror", "winuser"] }
 wio = "0.2.2"
