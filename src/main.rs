@@ -33,7 +33,7 @@ fn main() {
             0,
             class_name.as_ptr(),
             title.as_ptr(),
-            winuser::WS_OVERLAPPEDWINDOW | winuser::WS_VISIBLE,
+            winuser::WS_OVERLAPPEDWINDOW,
             winuser::CW_USEDEFAULT,
             winuser::CW_USEDEFAULT,
             winuser::CW_USEDEFAULT,
@@ -72,6 +72,13 @@ fn main() {
         d3d_device_context.clear_render_target_view(&mut rtv, &[0.0, 0.2, 0.4, 1.0]);
 
         swap_chain.present(1, 0).unwrap();
+        // Show window after first present to avoid flash of background color.
+        //
+        // I did some research and found that this is very conservative, lots of
+        // other combinations eliminate the flash, including just creating the
+        // d3d11 factory before creating the window (and using WS_VISIBLE). But
+        // this seems robust and doesn't seem to have a significant downside.
+        winuser::ShowWindow(hwnd, winuser::SW_SHOWNORMAL);
 
         loop {
             let mut msg = std::mem::zeroed();
