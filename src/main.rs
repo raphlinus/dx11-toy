@@ -1,6 +1,7 @@
 use std::ptr::{null, null_mut};
 
-use winapi::shared::dxgi::DXGI_SWAP_EFFECT_FLIP_DISCARD;
+use winapi::shared::dxgi::DXGI_SWAP_EFFECT_SEQUENTIAL;
+// compatibility is good.
 use winapi::shared::{dxgi1_2, dxgiformat, dxgitype, minwindef};
 use winapi::shared::dxgiformat::DXGI_FORMAT_R32G32B32_FLOAT;
 use winapi::um::d3dcommon::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -15,19 +16,8 @@ mod util;
 
 use d3d11::D3DBlob;
 
-const VERTEX_SHADER_HLSL: &str = r#"
-float4 main( float4 pos : POSITION ) : SV_POSITION
-{
-	return pos;
-}
-"#;
+const SHADER_HLSL: &str = include_str!("../shaders/shaders.hlsl");
 
-const PIXEL_SHADER_HLSL: &str = r#"
-float4 main() : SV_TARGET
-{
-	return float4(1.0f, 1.0f, 1.0f, 1.0f);
-}
-"#;
 
 fn main() {
     unsafe {
@@ -79,18 +69,19 @@ fn main() {
             },
             Scaling: dxgi1_2::DXGI_SCALING_STRETCH,
             Stereo: minwindef::FALSE,
-            // Note: FLIP_DISCARD is Windows 8 only; negotiate
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            // Note: consider using flip-mode for higher performance. However,
+            // compatibility is good.
+            SwapEffect: DXGI_SWAP_EFFECT_SEQUENTIAL,
         };
         let mut swap_chain = dxgi_factory
             .create_swapchain_for_hwnd(&d3d_device, hwnd, &desc)
             .unwrap();
 
         let vertex_shader_bc =
-            D3DBlob::compile_shader(VERTEX_SHADER_HLSL, "vs_5_0", "main", 0).unwrap();
+            D3DBlob::compile_shader(SHADER_HLSL, "vs_5_0", "vs_main", 0).unwrap();
         let vertex_shader = d3d_device.create_vertex_shader(&vertex_shader_bc).unwrap();
         let pixel_shader_bc =
-            D3DBlob::compile_shader(PIXEL_SHADER_HLSL, "ps_5_0", "main", 0).unwrap();
+            D3DBlob::compile_shader(SHADER_HLSL, "ps_5_0", "ps_main", 0).unwrap();
         let pixel_shader = d3d_device.create_pixel_shader(&pixel_shader_bc).unwrap();
 
         let ieds = [
@@ -144,15 +135,20 @@ fn main() {
         device_context.ia_set_primitive_topology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         device_context.draw(3, 0);
 
-        swap_chain.present(1, 0).unwrap();
-        // Show window after first present to avoid flash of background color.
+        // Defer window show to avoid flash of background color.
+        //
+        // With blit-model, the show has to happen before the present, otherwise
+        // the contents will be missing. With flip-model, it can happen after. The
+        // range of locations with no flash seems broad, so this seems like a good
+        // and simple compromise.
         //
         // I did some research and found that this is very conservative, lots of
         // other combinations eliminate the flash, including just creating the
         // d3d11 factory before creating the window (and using WS_VISIBLE). But
         // this seems robust and doesn't seem to have a significant downside.
         winuser::ShowWindow(hwnd, winuser::SW_SHOWNORMAL);
-
+        swap_chain.present(1, 0).unwrap();
+ 
         loop {
             let mut msg = std::mem::zeroed();
             // Note: we filter on hwnd so we get an error when the window is closed.

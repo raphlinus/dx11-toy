@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::ptr::{null, null_mut};
 
 use winapi::um::{d3d11, d3dcommon, d3dcompiler};
@@ -95,12 +96,12 @@ impl D3D11Device {
         }
     }
 
-    pub fn create_vertex_shader(&self, shader: &D3DBlob) -> Result<D3D11VertexShader, Error> {
+    pub fn create_vertex_shader(&self, shader: &[u8]) -> Result<D3D11VertexShader, Error> {
         unsafe {
             let mut ptr = null_mut();
             let hr = self.0.CreateVertexShader(
-                shader.0.GetBufferPointer(),
-                shader.0.GetBufferSize(),
+                shader.as_ptr() as *const _,
+                shader.len(),
                 null_mut(),
                 &mut ptr,
             );
@@ -108,12 +109,12 @@ impl D3D11Device {
         }
     }
 
-    pub fn create_pixel_shader(&self, shader: &D3DBlob) -> Result<D3D11PixelShader, Error> {
+    pub fn create_pixel_shader(&self, shader: &[u8]) -> Result<D3D11PixelShader, Error> {
         unsafe {
             let mut ptr = null_mut();
             let hr = self.0.CreatePixelShader(
-                shader.0.GetBufferPointer(),
-                shader.0.GetBufferSize(),
+                shader.as_ptr() as *const _,
+                shader.len(),
                 null_mut(),
                 &mut ptr,
             );
@@ -124,7 +125,7 @@ impl D3D11Device {
     pub fn create_input_layout(
         &self,
         descs: &[d3d11::D3D11_INPUT_ELEMENT_DESC],
-        bytecode: &D3DBlob,
+        bytecode: &[u8],
     ) -> Result<D3D11InputLayout, Error> {
         unsafe {
             assert!(descs.len() <= 0xffff_ffff);
@@ -132,8 +133,8 @@ impl D3D11Device {
             let hr = self.0.CreateInputLayout(
                 descs.as_ptr(),
                 descs.len() as u32,
-                bytecode.0.GetBufferPointer(),
-                bytecode.0.GetBufferSize(),
+                bytecode.as_ptr() as *const _,
+                bytecode.len(),
                 &mut ptr,
             );
             wrap(hr, ptr, D3D11InputLayout)
@@ -231,6 +232,18 @@ impl D3DBlob {
             );
             //println!("blob: {} bytes", (*ptr).GetBufferSize());
             wrap(hr, ptr, D3DBlob)
+        }
+    }
+}
+
+impl Deref for D3DBlob {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        unsafe {
+            let ptr = self.0.GetBufferPointer();
+            let size = self.0.GetBufferSize();
+            std::slice::from_raw_parts(ptr as *const _, size as usize)
         }
     }
 }
